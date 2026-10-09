@@ -156,7 +156,7 @@ Development dependencies: `pytest`, `pytest-asyncio`, `respx`, `ruff`, `mypy`.
 ### Linux / macOS
 
 ```bash
-git clone https://github.com/USERNAME/h1hunter.git
+git clone https://github.com/abdullah89255/h1hunter.git
 cd h1hunter
 
 python3.12 -m venv .venv
@@ -169,7 +169,7 @@ python -m pip install -e ".[dev]"
 ### Windows — PowerShell
 
 ```powershell
-git clone https://github.com/USERNAME/h1hunter.git
+git clone https://github.com/abdullah89255/h1hunter.git
 cd h1hunter
 
 py -3.12 -m venv .venv
@@ -182,7 +182,7 @@ python -m pip install -e ".[dev]"
 ### Windows — Command Prompt
 
 ```bat
-git clone https://github.com/USERNAME/h1hunter.git
+git clone https://github.com/abdullah89255/h1hunter.git
 cd h1hunter
 
 py -3.12 -m venv .venv
