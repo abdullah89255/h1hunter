@@ -562,6 +562,268 @@ weaken the safety regression suite will not be merged.
 
 ---
 
-<sub>h1hunter is an independent project and is not affiliated with or endorsed
-by HackerOne. "HackerOne" is a trademark of its respective owner and is used
-here only to describe the platform this tool is designed to work with.</sub>
+# h1hunter — daily-use commands
+
+Below are the commands you'll actually type. Every active command accepts `--dry-run`, which sends **zero** packets, so run the dry version first when you are unsure.
+
+Set a couple of variables once per shell so the commands stay short:
+
+```bash
+cd ~/Desktop/New_Folder/h1hunter
+S=config/scope.yaml
+C=config/config.yaml
+```
+
+---
+
+## 1. Before you do anything
+
+```bash
+h1hunter --help
+h1hunter version
+h1hunter scope validate --file $S
+```
+
+`scope validate` prints the program, the number of allowed/excluded entries, and whether active testing is permitted.
+
+---
+
+## 2. Check whether a target is authorized
+
+```bash
+h1hunter scope check --file $S --target https://www.tiktok.com
+h1hunter scope check --file $S --target api.example.com
+h1hunter scope check --file $S --target attacker.test
+```
+
+Exit code `0` means allowed, `1` means denied. Useful in a shell script:
+
+```bash
+if h1hunter scope check --file $S --target https://www.tiktok.com >/dev/null; then
+    echo "in scope"
+else
+    echo "out of scope"
+fi
+```
+
+---
+
+## 3. Dry-run planning
+
+```bash
+h1hunter plan --file $S --targets www.tiktok.com attacker.test
+```
+
+Prints a table of ALLOW/DENY decisions. No traffic.
+
+---
+
+## 4. Passive reconnaissance (local files only)
+
+Create a list of hostnames once:
+
+```bash
+mkdir -p data output
+printf 'www.tiktok.com\napi.tiktok.com\n' > data/hosts.txt
+```
+
+Configure a passive source in `config/config.yaml`:
+
+```yaml
+passive_sources:
+  - name: seed
+    enabled: true
+    options:
+      type: text
+      path: data/hosts.txt
+```
+
+Run it:
+
+```bash
+h1hunter recon passive --file $S --config $C \
+  --output output/passive.json --db output/assets.db
+```
+
+Discovered assets are marked `unvalidated`. They are **not** authorized until you run `scope check` on each.
+
+---
+
+## 5. Active reconnaissance
+
+**Always dry-run first:**
+
+```bash
+h1hunter recon dns   --file $S --targets-file data/hosts.txt --dry-run
+h1hunter recon probe --file $S --target https://www.tiktok.com --dry-run
+```
+
+Real runs (require `active_checks: true` and `policy_reviewed: true` in `$S`):
+
+```bash
+h1hunter recon dns   --file $S --targets-file data/hosts.txt \
+                     --output output/dns.json
+h1hunter recon probe --file $S --target https://www.tiktok.com \
+                     --output output/probe.json
+```
+
+**Bare domains vs URLs:**
+
+| Command | Accepts |
+|---|---|
+| `recon dns` | `www.tiktok.com` (bare) |
+| `recon probe` | `https://www.tiktok.com/` (full URL) |
+| `check tls` | `www.tiktok.com` (bare) |
+| `check headers` / `exposure` / `api-docs` | `https://www.tiktok.com/` |
+| `check reflection` | `https://www.tiktok.com/search?q=x` (must have a query string) |
+
+To convert a bare-host list to URLs:
+
+```bash
+awk '{print "https://" $0 "/"}' data/hosts.txt > data/urls.txt
+```
+
+---
+
+## 6. Security checks
+
+Dry runs first:
+
+```bash
+h1hunter check headers  --file $S --target https://www.tiktok.com --dry-run
+h1hunter check tls      --file $S --target www.tiktok.com        --dry-run
+h1hunter check exposure --file $S --target https://www.tiktok.com --dry-run
+h1hunter check api-docs --file $S --target https://www.tiktok.com --dry-run
+h1hunter check reflection --file $S \
+  --target "https://www.tiktok.com/search?q=x" --dry-run
+```
+
+Real runs, with reports:
+
+```bash
+h1hunter check headers --file $S --target https://www.tiktok.com \
+  --output output/headers.json
+
+h1hunter check tls --file $S --target www.tiktok.com \
+  --output output/tls.md --format markdown
+
+h1hunter check exposure --file $S --target https://www.tiktok.com \
+  --output output/exposure.csv --format csv
+```
+
+Multiple targets at once:
+
+```bash
+h1hunter check headers --file $S --targets-file data/urls.txt \
+  --output output/headers.json
+```
+
+`--target` is repeatable:
+
+```bash
+h1hunter check headers --file $S \
+  --target https://www.tiktok.com \
+  --target https://api.tiktok.com \
+  --output output/headers.json
+```
+
+---
+
+## 7. Reports
+
+Turn any findings JSON into another format:
+
+```bash
+h1hunter report --input output/headers.json --format markdown --output output/headers.md
+h1hunter report --input output/headers.json --format csv      --output output/headers.csv
+```
+
+The Markdown report is the one you paste into a HackerOne draft — it includes an authorization notice at the top.
+
+Reports refuse to overwrite existing files. Delete the old one or pick a new name.
+
+---
+
+## 8. Copy-paste cheat sheet
+
+```bash
+# Setup once per shell
+cd ~/Desktop/New_Folder/h1hunter
+S=config/scope.yaml
+C=config/config.yaml
+
+# Basics
+h1hunter version
+h1hunter --help
+h1hunter scope validate --file $S
+h1hunter scope check    --file $S --target https://www.tiktok.com
+
+# Plan (no traffic)
+h1hunter plan --file $S --targets www.tiktok.com
+
+# Passive (local files)
+h1hunter recon passive --file $S --config $C --output output/passive.json
+
+# Active (dry run first)
+h1hunter recon dns   --file $S --targets-file data/hosts.txt --dry-run
+h1hunter recon probe --file $S --target https://www.tiktok.com --dry-run
+
+# Active (real)
+h1hunter recon dns   --file $S --targets-file data/hosts.txt --output output/dns.json
+h1hunter recon probe --file $S --target https://www.tiktok.com --output output/probe.json
+
+# Checks (dry run first)
+h1hunter check headers  --file $S --target https://www.tiktok.com --dry-run
+h1hunter check tls      --file $S --target www.tiktok.com        --dry-run
+h1hunter check exposure --file $S --target https://www.tiktok.com --dry-run
+h1hunter check api-docs --file $S --target https://www.tiktok.com --dry-run
+h1hunter check reflection --file $S --target "https://www.tiktok.com/search?q=x" --dry-run
+
+# Reports
+h1hunter report --input output/headers.json --format markdown --output output/headers.md
+```
+
+---
+
+## 9. Exit codes
+
+| Code | Meaning |
+|---|---|
+| `0` | Success |
+| `1` | A scope decision denied the target |
+| `2` | Usage, configuration, or storage error |
+| `130` | You pressed Ctrl-C |
+
+Handy for scripts:
+
+```bash
+h1hunter scope check --file $S --target https://www.tiktok.com
+case $? in
+  0) echo "in scope"  ;;
+  1) echo "out of scope" ;;
+  2) echo "config/usage problem" ;;
+esac
+```
+
+---
+
+## 10. If something is refused
+
+| Message | Meaning | Fix |
+|---|---|---|
+| `active checks are disabled` | `active_checks: false` or `policy_reviewed: false` in `$S` | Edit `$S`, set both to `true` |
+| `scope file not found` | `$S` does not exist | `cp config/scope.example.yaml config/scope.yaml`, then edit it |
+| `target does not match any allowed scope entry` | The target is not in `allowed:` | Add an entry, or pick a different target |
+| `target matches exclusion` | The target is in `excluded:` | Remove the exclusion if it's a mistake |
+| `refusing to overwrite existing file` | The output path already exists | Delete it or use a different name |
+| `http error: Request URL is missing … protocol` | You passed a bare host to an HTTP command | Prefix with `https://` |
+
+---
+
+## Quick rule of thumb
+
+- **Bare hostnames** (`www.tiktok.com`) → `scope check`, `plan`, `recon dns`, `check tls`
+- **Full URLs** (`https://www.tiktok.com/`) → `recon probe`, `check headers`, `check exposure`, `check api-docs`
+- **Full URLs with a query** (`…/search?q=x`) → `check reflection`
+
+Always `--dry-run` the active commands first. If the plan table looks right, drop `--dry-run` and add `--output`.
