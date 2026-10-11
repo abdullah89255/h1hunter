@@ -6,7 +6,33 @@
 -->
 
 # h1hunter
+```bash
+python -m pip install hatchling
+python -m pip install -e ".[dev]"
+```
+```
+python -m pip install --upgrade pip
+python3 -m venv --clear .venv
+source .venv/bin/activate
+```
+```
+chmod +x build_h1hunter_fixed.sh
+chmod +x package_h1hunter.sh
+bash build_h1hunter_fixed.sh
+bash package_h1hunter.sh
+```
 
+
+```bash
+python3 build1.py && python3 build2.py && python3 build3.py \
+  && python3 build4a.py && python3 build4b.py && python3 build4c.py
+```
+```
+python3 fix_rich.py
+```
+```
+python3 zip_it.py
+```
 > Safe-by-default reconnaissance and low-impact security check toolkit for **authorized** HackerOne bug bounty programs.
 
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
